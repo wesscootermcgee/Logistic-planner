@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Logistic Planner</title>
+<style>
+/* ===== Design system (matches the polished web app) ===== */
+:root{
+  --bg:#f6f7fb; --surface:#fff; --surface-2:#f1f3f9; --surface-3:#e8ebf5;
+  --border:#e2e6f0; --border-strong:#cdd3e3;
+  --text:#1c2434; --text-soft:#4a5468; --text-muted:#8590a8;
+  --primary:#6366f1; --primary-hover:#5457e5; --primary-soft:#eef0fe;
+  --accent:#f59e0b; --success:#10b981; --danger:#ef4444; --info:#0ea5e9;
+  --activity:#0ea5e9; --shorttrip:#f59e0b; --trip:#8b5cf6;
+  --shadow-sm:0 1px 2px rgba(20,30,60,.06); --shadow:0 4px 14px rgba(20,30,60,.08); --shadow-lg:0 12px 30px rgba(20,30,60,.12);
+  --radius-sm:8px; --radius:14px; --radius-lg:20px; --radius-pill:999px;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1320;--surface:#171c2c;--surface-2:#1f2538;--surface-3:#2a3147;--border:#2a3147;--border-strong:#3a4259;--text:#eef1f8;--text-soft:#c2c9da;--text-muted:#8a93ab;--primary-soft:#232a45;--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow:0 4px 14px rgba(0,0,0,.35);--shadow-lg:0 12px 30px rgba(0,0,0,.45);}
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
+body{min-height:100dvh}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{margin:0 0 .4em;line-height:1.25;font-weight:700}
+h1{font-size:1.5rem}h2{font-size:1.25rem}h3{font-size:1.05rem}
+p{margin:0 0 .8em;line-height:1.55}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:.92rem;color:var(--text);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:9px 11px;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+textarea{resize:vertical;min-height:70px;line-height:1.5}
+/* layout */
+.app-shell{min-height:100dvh;display:flex;flex-direction:column}
+.app-header{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--border)}
+.app-header-inner{max-width:1180px;margin:0 auto;padding:0 16px;height:56px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.02rem;white-space:nowrap}
+.brand .logo{font-size:1.25rem}
+.nav-tabs{display:flex;align-items:center;gap:2px;margin-left:6px;overflow-x:auto}
+.nav-tabs button{background:none;border:none;color:var(--text-soft);font-size:.88rem;font-weight:600;padding:7px 11px;border-radius:var(--radius-pill);transition:background .15s,color .15s;white-space:nowrap}
+.nav-tabs button:hover{background:var(--surface-2);color:var(--text)}
+.nav-tabs button.active{background:var(--primary-soft);color:var(--primary)}
+.nav-spacer{flex:1}
+.bottom-nav{display:none}
+.main{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:20px 16px 90px}
+.page-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.page-title h1{margin:0}
+.page-title .sub{color:var(--text-muted);font-size:.88rem}
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;border-radius:var(--radius-pill);padding:9px 16px;font-size:.9rem;font-weight:600;background:var(--surface-2);color:var(--text);transition:background .15s,border-color .15s,transform .05s,opacity .15s;white-space:nowrap}
+.btn:hover{background:var(--surface-3)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-ghost{background:transparent;border-color:var(--border-strong);color:var(--text-soft)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-subtle{background:var(--surface-2);color:var(--text-soft)}
+.btn-sm{padding:5px 11px;font-size:.82rem}
+.btn-icon{padding:8px;width:38px;height:38px;border-radius:var(--radius-pill)}
+/* cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card-pad{padding:16px}
+.card-hover{transition:transform .12s,box-shadow .12s,border-color .12s}
+.card-hover:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--border-strong);cursor:pointer}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.grid{display:grid;gap:13px}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-auto{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--radius-pill);font-size:.76rem;font-weight:600;background:var(--surface-3);color:var(--text-soft)}
+.badge-type-activity{background:rgba(14,165,233,.14);color:#0369a1}
+.badge-type-shortTrip{background:rgba(245,158,11,.16);color:#b45309}
+.badge-type-trip{background:rgba(139,92,246,.16);color:#6d28d9}
+@media (prefers-color-scheme:dark){.badge-type-activity{color:#7dd3fc}.badge-type-shortTrip{color:#fcd34d}.badge-type-trip{color:#c4b5fd}}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:var(--radius-pill);font-size:.8rem;font-weight:600;background:var(--surface-2)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%}
+/* forms */
+label.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+label.field>.label{font-size:.82rem;font-weight:600;color:var(--text-soft)}
+.req{color:var(--danger);font-weight:700}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1;min-width:130px}
+.row.tight{gap:8px}
+/* details */
+details.collapsible{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);margin-bottom:10px;overflow:hidden}
+details.collapsible>summary{list-style:none;cursor:pointer;padding:12px 15px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px;user-select:none}
+details.collapsible>summary::-webkit-details-marker{display:none}
+details.collapsible>summary .chev{transition:transform .15s;color:var(--text-muted)}
+details.collapsible[open]>summary .chev{transform:rotate(90deg)}
+details.collapsible>.collapsible-body{padding:4px 15px 15px}
+/* states */
+.empty-state{text-align:center;padding:44px 18px;color:var(--text-muted)}
+.empty-state .big{font-size:2.5rem;margin-bottom:8px}
+.empty-state h3{color:var(--text)}
+.spinner{width:18px;height:18px;border:2.5px solid var(--surface-3);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:#b91c1c;border-radius:var(--radius);padding:12px 14px;font-size:.9rem}
+@media (prefers-color-scheme:dark){.error-box{color:#fca5a5}}
+.notice-box{background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.25);color:#0369a1;border-radius:var(--radius);padding:12px 14px;font-size:.9rem}
+@media (prefers-color-scheme:dark){.notice-box{color:#7dd3fc}}
+/* toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:11px 18px;border-radius:var(--radius-pill);box-shadow:var(--shadow-lg);font-size:.9rem;font-weight:600;z-index:100;max-width:90vw;text-align:center}
+#toast.error{background:var(--danger);color:#fff}
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,19,32,.55);backdrop-filter:blur(3px);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto}
+.modal{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:640px;margin:auto}
+.modal-wide{max-width:820px}
+.modal-small{max-width:440px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px}
+.modal-head h2{margin:0}
+.modal-body{padding:8px 20px 20px}
+.modal-foot{display:flex;align-items:center;gap:10px;padding:14px 20px 20px;border-top:1px solid var(--border)}
+.modal-foot .spacer{flex:1}
+/* auth */
+.auth-screen{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:radial-gradient(1200px 600px at 50% -10%,rgba(99,102,241,.12),transparent 60%),var(--bg)}
+.auth-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:28px 26px}
+.auth-brand{text-align:center;margin-bottom:18px}
+.auth-brand .logo{font-size:2.4rem}
+.auth-brand h1{margin:6px 0 2px;font-size:1.4rem}
+.auth-brand .muted{margin:0}
+.auth-form .field{margin-bottom:12px}
+/* chat */
+.chat-msg{margin-bottom:10px;display:flex}
+.chat-msg.user{justify-content:flex-end}
+.chat-msg .bubble{max-width:85%;padding:10px 13px;border-radius:14px;white-space:pre-wrap;word-break:break-word}
+.chat-msg.user .bubble{background:var(--primary);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.ai .bubble{background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:4px}
+.chat-msg.ai .bubble.error{border-color:var(--danger);color:var(--danger)}
+.sources-toggle{font-size:.78rem;color:var(--text-muted);margin-top:6px;cursor:pointer;background:none;border:none;padding:0;text-decoration:underline}
+.sources-list{font-size:.82rem;margin-top:6px;padding-left:0;list-style:none}
+.sources-list li{padding:3px 0;border-top:1px dashed var(--border)}
+.sources-meta{font-size:.72rem;color:var(--text-muted);margin-top:4px}
+/* helpers */
+.muted{color:var(--text-muted)}
+.small{font-size:.82rem}
+.center{text-align:center}
+.flex{display:flex;align-items:center;gap:8px}
+.flex-between{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wrap{flex-wrap:wrap}
+.gap-sm{gap:6px}
+.stack-sm>*+*{margin-top:8px}
+.mt{margin-top:14px}
+.mt-sm{margin-top:8px}
+.mb{margin-bottom:14px}
+.hidden{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+/* mobile */
+@media (max-width:860px){.grid-3,.grid-2{grid-template-columns:1fr}}
+@media (max-width:720px){
+  .app-header-inner{padding:0 12px;gap:8px;height:52px}
+  .nav-tabs{display:none}
+  .main{padding:14px 12px 86px}
+  h1{font-size:1.25rem}
+  .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--surface);border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom));justify-content:space-around}
+  .bottom-nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--text-muted);font-size:.64rem;font-weight:600;padding:5px 2px}
+  .bottom-nav button.active{color:var(--primary)}
+  .bottom-nav .bnav-icon{font-size:1.2rem;line-height:1}
+  .row>*{min-width:100%}
+  .modal-overlay{padding:0}
+  .modal{border-radius:0;min-height:100dvh;max-width:100%}
+}
+/* plan-graph (svg) */
+.graph-canvas{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:60vh;min-height:360px;touch-action:none;cursor:grab}
+.graph-canvas:active{cursor:grabbing}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-cell{min-height:62px;padding:5px;border-radius:8px;background:var(--surface);border:1px solid var(--border);cursor:pointer;text-align:left}
+.cal-cell.today{outline:2px solid var(--accent)}
+.cal-cell.selected{outline:2px solid var(--primary);background:var(--primary-soft)}
+.cal-day-name{font-weight:700;font-size:.72rem;color:var(--text-muted);text-align:center;padding:4px 0}
+.cal-event{font-size:.66rem;padding:1px 5px;border-radius:5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:720px){ .chat-layout-hack{flex-direction:column!important} .chat-sidebar{width:100%!important;min-width:0!important;max-height:none!important} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ====================================================================
+   LOGISTIC PLANNER — standalone single-file build
+   Everything (plans, settings, chat history) persists in localStorage.
+   AI chat calls Groq + Tavily directly from the browser (keys baked in).
+   Password gate (default "poodle2") protects casual access.
+   ==================================================================== */
+
+/* ---------- Config (keys baked in for offline-family use) ---------- */
+const CONFIG = {
+  GROQ_KEY: "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",
+  GROQ_MODEL: "llama-3.3-70b-versatile",
+  GROQ_FALLBACK: "llama-3.1-8b-instant",
+  TAVILY_KEY: "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",
+  PASSWORD: "poodle2",
+  SESSION_KEY: "lp.session",
+};
+
+/* ---------- Metadata ---------- */
+const PLAN_TYPE_META = {
+  activity:{label:"Activity",icon:"📍",color:"#0ea5e9"},
+  shortTrip:{label:"Short Trip",icon:"🚗",color:"#f59e0b"},
+  trip:{label:"Trip",icon:"✈️",color:"#8b5cf6"},
+};
+const STATUS_META = {
+  idea:{label:"Idea",icon:"💡",color:"#94a3b8"},
+  planning:{label:"Planning",icon:"📝",color:"#0ea5e9"},
+  ready:{label:"Ready",icon:"✅",color:"#10b981"},
+  scheduled:{label:"Scheduled",icon:"📅",color:"#6366f1"},
+  inProgress:{label:"In Progress",icon:"🟢",color:"#22c55e"},
+  completed:{label:"Completed",icon:"🏁",color:"#64748b"},
+  canceled:{label:"Canceled",icon:"✖️",color:"#ef4444"},
+};
+const TRANSPORT_META = {
+  driving:{label:"Driving",icon:"🚗"}, flying:{label:"Flying",icon:"✈️"}, train:{label:"Train",icon:"🚆"},
+  bus:{label:"Bus",icon:"🚌"}, rental:{label:"Rental car",icon:"🚙"}, walking:{label:"Walking",icon:"🚶"},
+  biking:{label:"Biking",icon:"🚴"}, other:{label:"Other",icon:"🧭"},
+};
+const CHECKLIST_CATS = [
+  {id:"todo",label:"Things to do",icon:"✔️"},{id:"bring",label:"Things to bring",icon:"🎒"},
+  {id:"packing",label:"Packing",icon:"🧳"},{id:"reservations",label:"Reservations",icon:"🎫"},
+  {id:"before",label:"Before leaving",icon:"🚪"},{id:"during",label:"During trip",icon:"📸"},
+  {id:"after",label:"After trip",icon:"📦"},
+];
+
+/* ---------- Storage ---------- */
+const S = {
+  plans: "lp.plans.v3",
+  settings: "lp.settings.v3",
+  chats: "lp.chats.v3",
+};
+function load(key, fallback){ try{ const r = localStorage.getItem(key); return r?JSON.parse(r):fallback; }catch{ return fallback; } }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn("save failed", e); } }
+function uid(){ return 'id-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); }
+
+/* ---------- State ---------- */
+let state = {
+  view: "dashboard",
+  detailId: null,
+  newPlanOpen: false,
+  newPlanDate: undefined,
+  plans: load(S.plans, []),
+  settings: Object.assign({freeOnlyMode:true, searchMode:"askFirst", privacy:{sendTravelerNames:false,sendAddresses:false,sendReservationNumbers:false,sendPersonalNotes:false,sendAllDetails:false}}, load(S.settings, {})),
+  chats: migrateChats(load(S.chats, null)),
+  activeChatId: null,
+};
+/* Migrate old {global:[], plan:{}} format → list of conversations.
+   New shape: [{id,title,planId,createdAt,messages:[{role,content,...}]}] */
+function migrateChats(old){
+  if(Array.isArray(old)) return old; // already new format
+  const convs=[];
+  if(old && Array.isArray(old.global) && old.global.length){
+    convs.push({id:uid(),title:"General chat",planId:null,createdAt:Date.now(),messages:old.global});
+  }
+  if(old && old.plan){
+    for(const pid in old.plan){
+      const msgs=old.plan[pid];
+      if(Array.isArray(msgs) && msgs.length){
+        convs.push({id:uid(),title:(state&&state.plans?state.plans.find(p=>p.id===pid):{title:"Plan"})?.title||"Plan chat",planId:pid,createdAt:Date.now(),messages:msgs});
+      }
+    }
+  }
+  return convs;
+}
+function persistPlans(){ save(S.plans, state.plans); }
+function persistSettings(){ save(S.settings, state.settings); }
+function persistChats(){ save(S.chats, state.chats); }
+
+/* ---------- Date helpers ---------- */
+function toISO(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const da=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${da}`; }
+function parseISO(s){ if(!s) return null; const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function fmtRange(a,b){ const s=parseISO(a),e=parseISO(b); if(!s&&!e) return "No dates"; if(s&&e&&a!==b){ const o={month:"short",day:"numeric"}; if(s.getFullYear()!==e.getFullYear()||s.getFullYear()!==new Date().getFullYear())o.year="numeric"; return s.toLocaleDateString("en",o)+" – "+e.toLocaleDateString("en",o);} const only=s||e; return only?only.toLocaleDateString("en",{month:"short",day:"numeric",year:"numeric"}):"No dates"; }
+function relativeDay(s){ const d=parseISO(s); if(!d) return ""; const t=startOfDay(new Date()); const diff=daysBetween(t,startOfDay(d)); if(diff===0)return"Today"; if(diff===1)return"Tomorrow"; if(diff===-1)return"Yesterday"; if(diff>1&&diff<=14)return`in ${diff} days`; if(diff<-1&&diff>=-30)return`${Math.abs(diff)} days ago`; return d.toLocaleDateString("en",{month:"short",day:"numeric"}); }
+function tripDays(a,b){ const s=parseISO(a),e=parseISO(b); if(!s||!e) return (s||e)?1:0; return daysBetween(s,e)+1; }
+
+/* ---------- UI helpers ---------- */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+let toastTimer;
+function toast(msg, kind){ const el=document.getElementById("toast"); if(!el) return; el.textContent=msg; el.className="toast"+(kind==="error"?" error":""); el.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{el.hidden=true},2800); }
+function el(tag, props, ...kids){ const e=document.createElement(tag); if(props) for(const k in props){ if(k==="class")e.className=props[k]; else if(k==="style"&&typeof props[k]==="object")Object.assign(e.style,props[k]); else if(k.startsWith("on")&&typeof props[k]==="function")e.addEventListener(k.slice(2).toLowerCase(),props[k]); else if(k==="html")e.innerHTML=props[k]; else e.setAttribute(k,props[k]); } for(const kid of kids){ if(kid==null||kid===false)continue; e.appendChild(typeof kid==="string"?document.createTextNode(kid):kid); } return e; }
+
+/* ---------- AI: Groq ---------- */
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+let lastGroqError = null, lastGroqSuccess = null;
+async function groqChat(messages, opts={}){
+  opts.model = opts.model || CONFIG.GROQ_MODEL;
+  const body = { model: opts.model, messages, temperature: opts.temperature ?? 0.6, max_tokens: opts.maxTokens ?? 1024 };
+  if(opts.jsonMode) body.response_format = { type:"json_object" };
+  let res;
+  try{
+    res = await fetch(GROQ_URL, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${CONFIG.GROQ_KEY}`}, body: JSON.stringify(body) });
+  }catch(e){ throw aiErr("network","groq","Couldn't reach Groq. Check your internet."); }
+  if(res.status===429){ throw aiErr("rateLimited","groq","Groq's free limit was reached. Try again in a minute — your plans are safe."); }
+  if(res.status===401||res.status===403){ throw aiErr("invalidKey","groq","Groq key looks invalid."); }
+  if(res.status===404 || res.status>=500){ /* try fallback */ if(opts.model===CONFIG.GROQ_MODEL && CONFIG.GROQ_FALLBACK){ opts.model=CONFIG.GROQ_FALLBACK; return groqChat(messages,opts);} throw aiErr("modelUnavailable","groq","The AI model is unavailable right now."); }
+  let data; try{ data=await res.json(); }catch{ throw aiErr("parse","groq","Unexpected response."); }
+  if(!res.ok) throw aiErr("http","groq",data.error?.message||"Groq error.");
+  const content = data.choices?.[0]?.message?.content || "";
+  lastGroqSuccess = Date.now(); lastGroqError=null;
+  return content;
+}
+function aiErr(kind,provider,message){ const e=new Error(message||kind); e.kind=kind; e.provider=provider; return e; }
+function extractJSON(text){ if(!text) return null; const f=text.match(/```(?:json)?\s*([\s\S]*?)```/i); if(f){try{return JSON.parse(f[1].trim())}catch{}} const s=text.indexOf("{"),e=text.lastIndexOf("}"); if(s!==-1&&e>s){try{return JSON.parse(text.slice(s,e+1))}catch{}} try{return JSON.parse(text.trim())}catch{return null} }
+async function groqJSON(messages, opts={}){ const t=await groqChat(messages,Object.assign({},opts,{jsonMode:true})); const j=extractJSON(t); if(!j) throw aiErr("parse","groq","Couldn't read AI's structured reply."); return j; }
+
+/* ---------- AI: Tavily ---------- */
+const TAVILY_URL = "https://api.tavily.com/search";
+const searchCache = new Map();
+const TTL = { weather:2*3600000, hours:24*3600000, attraction:24*3600000, destination:4*86400000, road:22*60000, events:9*3600000, general:6*3600000 };
+let lastTavilyError=null, lastTavilySuccess=null;
+function inferKind(q){ q=q.toLowerCase(); if(/(weather|forecast|temperature|rain|snow)/.test(q))return"weather"; if(/(road|closure|construction|traffic)/.test(q))return"road"; if(/(open|hours|close|opening|closing)/.test(q))return"hours"; if(/(event|festival|concert|happening)/.test(q))return"events"; if(/(park|museum|attraction|restaurant|hotel|things to do)/.test(q))return"attraction"; if(/(near|around|destination|visit)/.test(q))return"destination"; return"general"; }
+function needsSearch(q){ q=q.toLowerCase(); if(/(weather|forecast|open|hours|close|road|closure|traffic|event|happening|price|cost|ticket|travel warning|current|today|tonight|this weekend|nearby|near us)/.test(q))return true; return false; }
+async function tavilySearch(query, opts={}){
+  const kind = opts.kind || inferKind(query);
+  const key = kind+"::"+query.toLowerCase();
+  if(!opts.force){ const c=searchCache.get(key); if(c&&c.expires>Date.now()) return Object.assign({},c.result,{fromCache:true}); }
+  let res;
+  try{
+    res = await fetch(TAVILY_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({api_key:CONFIG.TAVILY_KEY,query,topic:kind==="events"?"news":"general",include_answer:opts.includeAnswer!==false,max_results:5})});
+  }catch(e){ throw aiErr("network","tavily","Couldn't reach Tavily search."); }
+  if(res.status===429){ throw aiErr("quotaReached","tavily","Tavily's free credits are used up. Your plans are safe — cached info still shows."); }
+  let data; try{ data=await res.json(); }catch{ throw aiErr("parse","tavily","Unexpected search response."); }
+  if(!res.ok) throw aiErr("http","tavily",data.detail||"Search error.");
+  lastTavilySuccess=Date.now(); lastTavilyError=null;
+  const sources=(data.results||[]).map(r=>{let site="";try{site=new URL(r.url).hostname.replace(/^www\./,"")}catch{} return {title:r.title||"(untitled)",url:r.url||"",siteName:site,snippet:typeof r.content==="string"?r.content.slice(0,280):undefined};});
+  const result={answer:data.answer?String(data.answer):undefined,sources,checkedOn:new Date().toISOString(),fromCache:false};
+  searchCache.set(key,{result,expires:Date.now()+(TTL[kind]||TTL.general)});
+  return result;
+}
+
+/* ---------- Plan context (privacy-filtered) ---------- */
+function planContext(plan){
+  const p=state.settings.privacy; const L=[];
+  L.push("Plan type: "+PLAN_TYPE_META[plan.type].label);
+  L.push("Title: "+plan.title||"(untitled)");
+  L.push("Destination: "+plan.destination);
+  if(plan.startLocation) L.push("Starting from: "+(p.sendAddresses?plan.startLocation:"(hidden)"));
+  L.push("Dates: "+(plan.startDate?fmtRange(plan.startDate,plan.endDate):"no dates")+(plan.flexibleDates?" (flexible)":""));
+  if(plan.startTime||plan.endTime) L.push("Times: "+(plan.startTime||"?")+" – "+(plan.endTime||"?"));
+  if(p.sendTravelerNames&&plan.travelers&&plan.travelers.length) L.push("Travelers: "+plan.travelers.join(", ")+(plan.pets?"; pets: "+plan.pets:""));
+  else if(plan.peopleCount) L.push("People: "+plan.peopleCount);
+  if(plan.transportation) L.push("Transport: "+TRANSPORT_META[plan.transportation].label);
+  L.push("Status: "+STATUS_META[plan.status].label);
+  if(plan.destinations&&plan.destinations.length) L.push("Stops: "+plan.destinations.map(d=>d.name).join(" → "));
+  if(plan.activities&&plan.activities.length) L.push("Activities: "+plan.activities.map(a=>a.text).join("; "));
+  if(plan.packing&&plan.packing.length) L.push("Packing ("+plan.packing.length+"): "+plan.packing.slice(0,20).map(x=>x.text).join(", "));
+  if(plan.checklists&&plan.checklists.length){ const cs=plan.checklists.filter(c=>c.items.length).map(c=>c.name+" ("+c.items.length+")").join("; "); if(cs)L.push("Checklists: "+cs); }
+  if(plan.reservations&&plan.reservations.length) L.push("Reservations: "+plan.reservations.map(r=>r.title+(p.sendReservationNumbers&&r.confirmationNumber?" conf# "+r.confirmationNumber:"")).join(" | "));
+  if(plan.freeform&&(p.sendAllDetails||p.sendPersonalNotes)) L.push("Freeform: "+plan.freeform);
+  return L.join("\n");
+}
+function globalContext(){
+  if(!state.plans.length) return "The user has no saved plans yet.";
+  return "The user has "+state.plans.length+" plan(s):\n"+state.plans.slice(0,40).map(p=>"(id:"+p.id+") ["+PLAN_TYPE_META[p.type].label+"] \""+p.title+"\" · "+p.destination+" · "+(p.startDate?fmtRange(p.startDate,p.endDate):"no dates")).join("\n");
+}
+
+/* ---------- Chat (persisted as a list of conversations) ---------- */
+/* Conversation shape: {id,title,planId,createdAt,messages:[{role,content,error?,sources?,...}]} */
+function newConversation(planId){
+  const c = {id:uid(), title: planId ? ((getPlan(planId)||{}).title||"Plan chat") : "New chat", planId, createdAt:Date.now(), messages:[]};
+  state.chats.unshift(c); persistChats(); return c;
+}
+function getConversation(id){ return state.chats.find(c=>c.id===id); }
+const APP_SYS = "You are the assistant inside 'Logistic Planner', a friendly app for planning activities, short trips, and full trips. Be warm, concise, practical. Use the provided plan context as truth. Keep answers short and skimmable.\nWhen the user asks you to CHANGE a plan (set a date, change the title/destination/time, add a packing item, etc.), the app will make that change automatically for them. Just confirm it briefly, e.g. 'Done — I set the destination to Library.' Do not ask the user to confirm; the change has already been applied.";
+async function runChat(text, conv, useWeb, decision){
+  const planId = conv.planId;
+  const history = conv.messages.filter(m=>!m.error).slice(-10).map(m=>({role:m.role,content:m.content}));
+  let context = planId ? planContext(getPlan(planId)||{}) : globalContext();
+  const webAllowed = useWeb!==false && state.settings.searchMode!=="never";
+  const wantSearch = webAllowed && needsSearch(text);
+  if(wantSearch){
+    if(state.settings.searchMode==="askFirst" && decision===undefined){
+      return { needsConfirmation:true, prompt:"This question may need current web information. Use one web search?" };
+    }
+    if(state.settings.searchMode==="askFirst" && decision===false){ /* answer without search */ }
+    else if(state.settings.searchMode==="automatic" || decision===true){
+      const sr = await tavilySearch(text,{includeAnswer:true,kind:inferKind(text)});
+      const block = sr.sources.length ? sr.sources.map((s,i)=>"Source "+(i+1)+": "+s.title+" ("+s.siteName+") — "+(s.snippet||"")).join("\n") : "(no sources)";
+      let answer;
+      try{ answer = await groqChat([{role:"system",content:"You are the helpful assistant inside Logistic Planner. Answer using ONLY these web-search sources. If not covered, say so. 2-5 sentences. Don't add citations."},{role:"user",content:"Plan context:\n"+context+"\n\nSources:\n"+block+"\n\nQuestion: "+text}],{temperature:0.4,maxTokens:512}); }
+      catch(e){ if(sr.answer) answer=sr.answer; else throw e; }
+      return { text:answer.trim(), sources:sr.sources, checkedOn:sr.checkedOn, fromCache:sr.fromCache, searched:true };
+    }
+  }
+  // streamed-like plain answer
+  const out = await groqChat([{role:"system",content:APP_SYS},{role:"system",content:"Current plan context:\n"+context},...history,{role:"user",content:text}],{temperature:0.6,maxTokens:768});
+  return { text: out.trim() };
+}
+
+/* ---------- Plan ops ---------- */
+function getPlan(id){ return state.plans.find(p=>p.id===id); }
+function blankPlan(type,dest){ const now=Date.now(); return {id:uid(),type,title:dest||PLAN_TYPE_META[type].label,destination:dest,status:"planning",destinations:[],activities:[],itinerary:[],packing:[],checklists:[],reservations:[],freeform:"",createdAt:now,updatedAt:now}; }
+function createPlan(p){ const plan=Object.assign(blankPlan(p.type,p.destination),p,{createdAt:Date.now(),updatedAt:Date.now()}); state.plans.unshift(plan); persistPlans(); return plan; }
+function updatePlan(id,patch){ const p=getPlan(id); if(!p)return null; Object.assign(p,patch,{updatedAt:Date.now()}); persistPlans(); return p; }
+function deletePlan(id){ const i=state.plans.findIndex(p=>p.id===id); if(i<0)return false; state.plans.splice(i,1); state.chats=state.chats.filter(c=>c.planId!==id); persistPlans(); persistChats(); return true; }
+
+/* ---------- Sample data ---------- */
+function samplePlans(){ const t=new Date(); const off=n=>{const d=new Date(t);d.setDate(d.getDate()+n);return toISO(d);};
+  return [
+    {id:"demo-library",type:"activity",title:"Go to the Library",destination:"Local Library",startDate:off(1),endDate:off(1),startTime:"10:00",endTime:"12:00",peopleCount:2,transportation:"driving",estimatedTravelTime:"15 min",status:"planning",freeform:"Return books, pick up new ones.",destinations:[],activities:[{id:uid(),text:"Return books",done:false}],itinerary:[],packing:[{id:uid(),text:"Library card",done:false},{id:uid(),text:"Books to return",done:false}],checklists:[],reservations:[],notes:"Sample plan — delete anytime.",createdAt:Date.now(),updatedAt:Date.now()},
+    {id:"demo-mountain",type:"shortTrip",title:"Mountain Day Trip",destination:"Rocky Mountain National Park",startLocation:"Greeley, CO",startDate:off(9),endDate:off(9),startTime:"07:00",endTime:"19:00",peopleCount:4,transportation:"driving",estimatedDistance:"120 mi",estimatedTravelTime:"2.5 hours",status:"planning",freeform:"Drive up early, hike, lunch with a view, stop in Estes Park.",destinations:[{id:uid(),name:"Estes Park"},{id:uid(),name:"Trailhead"}],activities:[{id:uid(),text:"Hike a moderate trail",done:false},{id:uid(),text:"Picnic lunch",done:false}],itinerary:[],packing:[{id:uid(),text:"Water bottles",done:false},{id:uid(),text:"Sunscreen",done:false},{id:uid(),text:"Hiking boots",done:false}],checklists:[{id:uid(),category:"before",name:"Before leaving",items:[{id:uid(),text:"Check park fees",done:false}]}],reservations:[],notes:"Sample plan — delete anytime.",createdAt:Date.now(),updatedAt:Date.now()},
+    {id:"demo-arkansas",type:"trip",title:"Arkansas Family Trip",destination:"Arkansas",startLocation:"Colorado",startDate:off(45),endDate:off(51),peopleCount:4,transportation:"driving",estimatedDistance:"700 mi",estimatedTravelTime:"11 hours",status:"planning",priority:"high",flexibleDates:true,freeform:"Seven-day family road trip from Colorado to Arkansas.",destinations:[{id:uid(),name:"Kansas"},{id:uid(),name:"Missouri"},{id:uid(),name:"Arkansas"}],activities:[{id:uid(),text:"Visit family",done:false},{id:uid(),text:"Go hiking",done:false}],itinerary:[{id:uid(),date:off(45),items:[{id:uid(),title:"Leave home",time:"08:00"},{id:uid(),title:"Drive to Kansas"}]}],packing:[{id:uid(),text:"Clothes for 7 days",done:false},{id:uid(),text:"Toiletries",done:false},{id:uid(),text:"Phone chargers",done:false}],checklists:[{id:uid(),category:"reservations",name:"Reservations",items:[{id:uid(),text:"Book hotel in Kansas",done:false}]}],reservations:[{id:uid(),type:"lodging",title:"Hotel — Kansas (1 night)",date:off(45)}],notes:"Sample plan — delete anytime.",createdAt:Date.now(),updatedAt:Date.now()},
+  ];
+}
+
+/* ====================================================================
+   RENDERING (vanilla DOM)
+   ==================================================================== */
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  if(!isAuthed()){ app.appendChild(renderAuth()); return; }
+  app.appendChild(renderShell());
+  const main = document.getElementById("main");
+  if(state.detailId){ renderDetail(state.detailId); }
+  else {
+    if(state.view==="dashboard") renderDashboard();
+    else if(state.view==="graph") renderGraph();
+    else if(state.view==="plans") renderPlans();
+    else if(state.view==="chat") renderChat(null);
+    else if(state.view==="calendar") renderCalendar();
+    else if(state.view==="settings") renderSettings();
+  }
+  renderToast();
+}
+
+/* ---------- Toast element ---------- */
+function renderToast(){ if(document.getElementById("toast"))return; const t=el("div",{id:"toast",class:"toast",hidden:"hidden"}); document.body.appendChild(t); }
+
+/* ---------- Auth ---------- */
+function isAuthed(){ return sessionStorage.getItem(CONFIG.SESSION_KEY)==="1" || localStorage.getItem(CONFIG.SESSION_KEY)==="1"; }
+function renderAuth(){
+  const card = el("div",{class:"auth-card"});
+  card.appendChild(el("div",{class:"auth-brand"}, el("div",{class:"logo"}, "🗺️"), el("h1",{},"Logistic Planner"), el("p",{class:"muted"}, "Plan activities, short trips, and full trips")));
+  const form = el("form",{class:"auth-form",onsubmit:doLogin});
+  const errBox = el("div",{class:"error-box hidden"});
+  const pwInput = el("input",{type:"password",placeholder:"Password",autocomplete:"current-password",required:"required",id:"pw"});
+  pwInput.style.marginBottom = "8px";
+  const btn = el("button",{class:"btn btn-primary",type:"submit",style:{width:"100%"}}, "Unlock");
+  form.appendChild(pwInput); form.appendChild(errBox); form.appendChild(btn);
+  card.appendChild(form);
+  function doLogin(e){ e.preventDefault(); if(pwInput.value===CONFIG.PASSWORD){ localStorage.setItem(CONFIG.SESSION_KEY,"1"); render(); } else { errBox.textContent="Wrong password. Try again."; errBox.classList.remove("hidden"); } }
+  return el("div",{class:"auth-screen"}, card);
+}
+
+/* ---------- Shell ---------- */
+const NAV = [ {id:"dashboard",label:"Dashboard",icon:"🏠"},{id:"graph",label:"Plan Graph",icon:"🕸️"},{id:"plans",label:"Plans",icon:"📋"},{id:"chat",label:"AI Chat",icon:"💬"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"settings",label:"Settings",icon:"⚙️"} ];
+function renderShell(){
+  const shell = el("div",{class:"app-shell"});
+  const header = el("header",{class:"app-header"}, el("div",{class:"app-header-inner"},
+    el("div",{class:"brand"}, el("span",{class:"logo"},"🗺️"), el("span",{},"Logistic Planner")),
+    el("nav",{class:"nav-tabs"}, ...NAV.map(n=>el("button",{class:(state.view===n.id&&!state.detailId?"active":""),onclick:()=>{state.view=n.id;state.detailId=null;window.scrollTo(0,0);render();}}, el("span",{},n.icon+" " ), document.createTextNode(n.label)))),
+    el("div",{class:"nav-spacer"}),
+    el("button",{class:"btn btn-primary btn-sm",onclick:()=>{state.newPlanOpen=true;state.newPlanDate=undefined;renderModal();}}, "＋ New Plan")
+  ));
+  shell.appendChild(header);
+  shell.appendChild(el("main",{class:"main",id:"main"}));
+  shell.appendChild(el("nav",{class:"bottom-nav"}, ...NAV.slice(0,5).map(n=>el("button",{class:(state.view===n.id&&!state.detailId?"active":""),onclick:()=>{state.view=n.id;state.detailId=null;render();}}, el("span",{class:"bnav-icon"},n.icon), el("span",{},n.label)))));
+  return shell;
+}
+
+/* ---------- Modal root (separate so forms don't wipe main) ---------- */
+function renderModal(){
+  let m = document.getElementById("modal-root");
+  if(!m){ m=el("div",{id:"modal-root"}); document.body.appendChild(m); }
+  m.innerHTML="";
+  if(state.newPlanOpen){ m.appendChild(renderNewPlan()); }
+  else { m.innerHTML=""; }
+}
+function closeModal(){ state.newPlanOpen=false; state.editingId=undefined; const m=document.getElementById("modal-root"); if(m)m.innerHTML=""; }
+
+// placeholder; filled in subsequent edits:
+function renderDashboard(){ renderDashboard_real(); }
+function renderGraph(){ renderGraph_real(); }
+function renderPlans(){ renderPlans_real(); }
+function renderChat(){ renderChat_real(); }
+function renderCalendar(){ renderCalendar_real(); }
+function renderSettings(){ renderSettings_real(); }
+function renderDetail(id){ renderDetail_real(id); }
+function renderNewPlan(){ return renderNewPlan_real(); }
+
+/* ---------- shared view builders ---------- */
+function openPlan(id){ state.detailId=id; detailTab="overview"; window.scrollTo(0,0); render(); }
+function go(v){ state.view=v; state.detailId=null; window.scrollTo(0,0); render(); }
+function planCard(plan){
+  const meta=PLAN_TYPE_META[plan.type], st=STATUS_META[plan.status];
+  const dur=tripDays(plan.startDate,plan.endDate);
+  const packing=plan.packing.length+plan.checklists.reduce((s,c)=>s+c.items.length,0);
+  const c = el("div",{class:"card card-hover card-pad",onclick:()=>openPlan(plan.id)});
+  c.appendChild(el("div",{class:"flex-between",style:{marginBottom:8}},
+    el("span",{class:"badge badge-type-"+plan.type}, meta.icon+" "+meta.label),
+    el("span",{class:"badge"}, el("span",{class:"dot",style:{background:st.color}}), " "+st.label)));
+  c.appendChild(el("h3",{style:{margin:"0 0 4px",fontSize:"1.05rem"}}, plan.title||plan.destination));
+  c.appendChild(el("div",{class:"muted small",style:{marginBottom:6}}, "📍 "+plan.destination));
+  c.appendChild(el("div",{class:"small",style:{color:"var(--text-soft)"}}, "🗓️ "+fmtRange(plan.startDate,plan.endDate)));
+  c.appendChild(el("div",{class:"flex wrap gap-sm",style:{justifyContent:"space-between",marginTop:6}},
+    el("span",{class:"muted small"}, (plan.startDate?relativeDay(plan.startDate):"No date")+(dur>1?" · "+dur+" days":"")),
+    packing?el("span",{class:"muted small"},"🎒 "+packing):null));
+  return c;
+}
+
+/* ---------- Dashboard ---------- */
+function renderDashboard_real(){
+  const main=document.getElementById("main"); main.innerHTML="";
+  main.appendChild(el("div",{class:"page-title"},
+    el("div",{}, el("h1",{},"Dashboard"), el("div",{class:"sub"}, state.plans.length+" plan"+(state.plans.length!==1?"s":""))),
+    el("button",{class:"btn btn-primary btn-sm",onclick:()=>{state.newPlanOpen=true;renderModal();}}, "＋ New Plan")));
+  if(!state.plans.length){
+    main.appendChild(el("div",{class:"empty-state"}, el("div",{class:"big"},"🗺️"), el("h3",{},"No plans yet"),
+      el("p",{class:"muted"},"Start simple — even just \u201Cgo to the library tomorrow.\u201D"),
+      el("div",{class:"mt"}, el("button",{class:"btn btn-primary",onclick:()=>{state.newPlanOpen=true;renderModal();}},"＋ Create your first plan"))));
+    return;
+  }
+  const today=startOfDay(new Date());
+  const g={today:[],tomorrow:[],upcoming:[],activities:[],shortTrips:[],trips:[],attention:[]};
+  state.plans.forEach(p=>{
+    if(p.type==="activity")g.activities.push(p); else if(p.type==="shortTrip")g.shortTrips.push(p); else g.trips.push(p);
+    const s=parseISO(p.startDate);
+    if(s){ const sd=startOfDay(s); if(sd.getTime()===today.getTime())g.today.push(p); else if(sd.getTime()===startOfDay(addDays(today,1)).getTime())g.tomorrow.push(p); else if(sd>today)g.upcoming.push(p); }
+    if(!p.startDate||p.status==="idea"||p.status==="planning")g.attention.push(p);
+  });
+  g.upcoming.sort((a,b)=>(parseISO(a.startDate)?.getTime()||0)-(parseISO(b.startDate)?.getTime()||0));
+  function section(title,arr,emptyMsg){
+    const wrap=el("div",{class:"mb"});
+    wrap.appendChild(el("div",{class:"flex-between",style:{marginBottom:8}}, el("h2",{style:{margin:0,fontSize:"1.05rem"}},title+" "), el("span",{class:"muted small"},"("+arr.length+")")));
+    if(arr.length){ const grid=el("div",{class:"grid grid-auto"}); arr.forEach(p=>grid.appendChild(planCard(p))); wrap.appendChild(grid); }
+    else wrap.appendChild(el("div",{class:"card card-pad muted small"}, emptyMsg));
+    return wrap;
+  }
+  main.appendChild(section("Today",g.today,"Nothing scheduled today."));
+  main.appendChild(section("Tomorrow",g.tomorrow,"Nothing tomorrow yet."));
+  main.appendChild(section("Upcoming",g.upcoming,"No upcoming plans."));
+  main.appendChild(section("Needs attention",g.attention,"Everything looks good ✅"));
+}
+
+/* ---------- Plans list ---------- */
+let filterQuery="", filterType="all", filterStatus="all";
+function renderPlans_real(){
+  const main=document.getElementById("main"); main.innerHTML="";
+  main.appendChild(el("div",{class:"page-title"},
+    el("div",{}, el("h1",{},"Plans"), el("div",{class:"sub"}, state.plans.length+" total")),
+    el("button",{class:"btn btn-primary btn-sm",onclick:()=>{state.newPlanOpen=true;renderModal();}},"＋ New Plan")));
+  const card=el("div",{class:"card card-pad mb"});
+  const q=el("input",{placeholder:"🔍 Search title, destination, notes…",style:{marginBottom:10}});
+  q.value=filterQuery; q.oninput=()=>{filterQuery=q.value; renderPlans_real();};
+  card.appendChild(q);
+  const frow=el("div",{class:"flex wrap",style:{justifyContent:"space-between"}});
+  const tgrp=el("div",{class:"flex wrap gap-sm"});
+  [["all","🗂️ All"],["activity","📍 Activities"],["shortTrip","🚗 Short Trips"],["trip","✈️ Trips"]].forEach(([id,label])=>{
+    const b=el("button",{class:"badge",style:{cursor:"pointer",padding:"6px 11px",opacity:filterType===id?1:.65},onclick:()=>{filterType=id;renderPlans_real();}}, label);
+    tgrp.appendChild(b);
+  });
+  frow.appendChild(tgrp);
+  card.appendChild(frow); main.appendChild(card);
+  const filtered=state.plans.filter(p=>{
+    if(filterType!=="all"&&p.type!==filterType)return false;
+    if(filterStatus!=="all"){ if(filterStatus==="upcoming"){const s=parseISO(p.startDate); if(!s||s<new Date(Date.now()-86400000))return false;} else if(p.status!==filterStatus)return false; }
+    if(filterQuery.trim()){ const q=filterQuery.toLowerCase(); const hay=[p.title,p.destination,p.notes,p.freeform].filter(Boolean).join(" ").toLowerCase(); if(!hay.includes(q))return false; }
+    return true;
+  });
+  if(filtered.length){ const grid=el("div",{class:"grid grid-auto"}); filtered.forEach(p=>grid.appendChild(planCard(p))); main.appendChild(grid); }
+  else main.appendChild(el("div",{class:"empty-state"}, el("div",{class:"big"},"🔍"), el("h3",{},"No matching plans"), el("p",{class:"muted"},"Try a different search or filter.")));
+}
+
+/* ---------- Calendar ---------- */
+let calCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+let calSelected=toISO(new Date());
+let calTypeFilter="all";
+function renderCalendar_real(){
+  const main=document.getElementById("main"); main.innerHTML="";
+  main.appendChild(el("div",{class:"page-title"}, el("div",{}, el("h1",{},"Calendar"), el("div",{class:"sub"},"All your plans on their dates"))));
+  const card=el("div",{class:"card card-pad mb"});
+  const head=el("div",{class:"flex-between wrap",style:{marginBottom:12}});
+  const nav=el("div",{class:"flex gap-sm"});
+  nav.appendChild(el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{calCursor=new Date(calCursor.getFullYear(),calCursor.getMonth()-1,1);renderCalendar_real();}},"‹"));
+  nav.appendChild(el("strong",{style:{minWidth:150,textAlign:"center"}}, calCursor.toLocaleDateString("en",{month:"long",year:"numeric"})));
+  nav.appendChild(el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{calCursor=new Date(calCursor.getFullYear(),calCursor.getMonth()+1,1);renderCalendar_real();}},"›"));
+  head.appendChild(nav);
+  head.appendChild(el("button",{class:"btn btn-subtle btn-sm",onclick:()=>{const d=new Date();calCursor=new Date(d.getFullYear(),d.getMonth(),1);calSelected=toISO(d);renderCalendar_real();}},"Today"));
+  card.appendChild(head);
+  const grid=el("div",{class:"cal-grid"});
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>grid.appendChild(el("div",{class:"cal-day-name"},d)));
+  const y=calCursor.getFullYear(),m=calCursor.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  for(let i=0;i<first;i++)grid.appendChild(el("div",{}));
+  const byDay=new Map();
+  state.plans.filter(p=>calTypeFilter==="all"||p.type===calTypeFilter).forEach(p=>{const s=parseISO(p.startDate);if(!s)return;const e=parseISO(p.endDate)||s;let cur=new Date(s),guard=0;while(cur<=e&&guard<400){const iso=toISO(cur);if(!byDay.has(iso))byDay.set(iso,[]);byDay.get(iso).push(p);cur=addDays(cur,1);guard++;}});
+  const todayISO=toISO(new Date());
+  for(let d=1;d<=days;d++){ const iso=toISO(new Date(y,m,d)); const events=byDay.get(iso)||[]; const cell=el("div",{class:"cal-cell"+(iso===todayISO?" today":"")+(iso===calSelected?" selected":""),onclick:()=>{calSelected=iso;renderCalendar_real();}}); cell.appendChild(el("div",{class:"small",style:{fontWeight:700,color:iso===todayISO?"var(--accent)":undefined}}, String(d))); events.slice(0,3).forEach(p=>{const meta=PLAN_TYPE_META[p.type]; cell.appendChild(el("div",{class:"cal-event",style:{background:meta.color+"22",color:meta.color}}, meta.icon+" "+(p.title||p.destination).slice(0,12)));}); if(events.length>3)cell.appendChild(el("div",{class:"cal-event muted",style:{background:"var(--surface-3)"}}, "+"+(events.length-3))); grid.appendChild(cell); }
+  card.appendChild(grid); main.appendChild(card);
+  // selected day
+  const sec=el("div",{class:"section"});
+  sec.appendChild(el("div",{class:"flex-between mb"}, el("h3",{style:{margin:0}}, parseISO(calSelected)?parseISO(calSelected).toLocaleDateString("en",{weekday:"long",month:"long",day:"numeric"}):"Select a day"), el("button",{class:"btn btn-primary btn-sm",onclick:()=>{state.newPlanOpen=true;state.newPlanDate=calSelected;renderModal();}},"＋ Plan for this day")));
+  const dayEvents=(byDay.get(calSelected)||[]);
+  if(dayEvents.length){ const g=el("div",{class:"grid grid-auto"}); dayEvents.forEach(p=>g.appendChild(planCard(p))); sec.appendChild(g); } else sec.appendChild(el("p",{class:"muted"},"No plans on this day."));
+  main.appendChild(sec);
+}
+
+/* ---------- Plan Graph ---------- */
+let graphZoom=1, graphPan={x:0,y:0};
+function renderGraph_real(){
+  const main=document.getElementById("main"); main.innerHTML="";
+  main.appendChild(el("div",{class:"page-title"}, el("div",{}, el("h1",{},"Plan Graph"), el("div",{class:"sub"}, state.plans.length+" plans"))));
+  if(!state.plans.length){ main.appendChild(el("div",{class:"empty-state"}, el("div",{class:"big"},"🕸️"), el("h3",{},"Nothing to graph yet"))); return; }
+  const groups=new Map();
+  state.plans.forEach(p=>{const k=p.type; if(!groups.has(k))groups.set(k,[]); groups.get(k).push(p);});
+  const NW=180,NH=88,GAP=20,GGAP=60;
+  let groupsArr=[],cursorX=20,maxY=60; let nodeIdx=0;
+  Array.from(groups.entries()).forEach(([key,list])=>{ list.sort((a,b)=>(parseISO(a.startDate)?.getTime()||0)-(parseISO(b.startDate)?.getTime()||0)); const nodes=list.map((p,i)=>({id:p.id,type:p.type,title:p.title,destination:p.destination,status:p.status,dateLabel:p.startDate?parseISO(p.startDate).toLocaleDateString("en",{month:"short",day:"numeric"}):"No date",x:cursorX,y:50+i*(NH+18),plan:p})); groupsArr.push({key,label:PLAN_TYPE_META[key].label,x:cursorX,nodes}); cursorX+=NW+GAP+GGAP; maxY=Math.max(maxY,50+list.length*(NH+18)); nodeIdx++; });
+  const canvas=el("div",{class:"graph-canvas"});
+  const svg=elNS("svg",{width:"100%",height:"100%"});
+  const g=elNS("g",{transform:`translate(${graphPan.x} ${graphPan.y}) scale(${graphZoom})`});
+  groupsArr.forEach(grp=>{ g.appendChild(elNS("text",{x:grp.x,y:22,fill:"var(--text-muted)","font-size":14,"font-weight":700}, grp.label)); grp.nodes.slice(1).forEach((n,i)=>{const prev=grp.nodes[i]; g.appendChild(elNS("line",{x1:prev.x+NW,y1:prev.y+NH/2,x2:n.x,y2:n.y+NH/2,stroke:"var(--border-strong)","stroke-dasharray":"4 4","stroke-width":1.5}));}); });
+  groupsArr.forEach(grp=>grp.nodes.forEach(n=>{ const ng=elNS("g",{transform:`translate(${n.x} ${n.y})`,style:"cursor:pointer"}); ng.addEventListener("click",()=>openPlan(n.plan.id)); ng.appendChild(elNS("rect",{width:NW,height:NH,rx:14,fill:"var(--surface)",stroke:PLAN_TYPE_META[n.type].color,"stroke-width":2})); ng.appendChild(elNS("rect",{width:6,height:NH,rx:3,fill:PLAN_TYPE_META[n.type].color})); ng.appendChild(elNS("text",{x:16,y:24,"font-size":13,"font-weight":700,fill:"var(--text)"}, (n.title||n.destination).slice(0,24))); ng.appendChild(elNS("text",{x:16,y:44,"font-size":11,fill:"var(--text-muted)"}, "📍 "+n.destination.slice(0,22))); ng.appendChild(elNS("text",{x:16,y:62,"font-size":11,fill:"var(--text-muted)"}, "🗓️ "+n.dateLabel)); ng.appendChild(elNS("circle",{cx:NW-14,cy:16,r:5,fill:STATUS_META[n.status].color})); g.appendChild(ng); }));
+  svg.appendChild(g); canvas.appendChild(svg);
+  // pan
+  let drag=null;
+  canvas.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,px:graphPan.x,py:graphPan.y}; canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener("pointermove",e=>{if(!drag)return; graphPan={x:drag.px+(e.clientX-drag.x),y:drag.py+(e.clientY-drag.y)}; g.setAttribute("transform",`translate(${graphPan.x} ${graphPan.y}) scale(${graphZoom})`);});
+  canvas.addEventListener("pointerup",()=>{drag=null;});
+  canvas.addEventListener("wheel",e=>{e.preventDefault(); graphZoom=Math.min(2,Math.max(0.4,graphZoom-e.deltaY*0.0015)); g.setAttribute("transform",`translate(${graphPan.x} ${graphPan.y}) scale(${graphZoom})`);},{passive:false});
+  main.appendChild(canvas);
+  main.appendChild(el("p",{class:"muted small mt"},"Drag to pan, scroll to zoom, click a card to open it."));
+}
+function elNS(tag,attrs,...kids){ const e=document.createElementNS("http://www.w3.org/2000/svg",tag); if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]); if(kids.length)e.textContent=kids.join(""); return e; }
+
+/* ---------- Chat ---------- */
+function renderChat_real(){ renderChatView(null); }
+
+/* ---------- AI actions: detect + AUTO-APPLY plan changes (no confirm) ---------- */
+const ACTION_SYS =
+  "You propose a single change to the user's plan inside Logistic Planner. " +
+  "If the user's message asks you to change/add/set something on a plan, return ONLY a JSON object describing the change. " +
+  "If it's just a question (not a change request), return {\"action\":\"none\"}. " +
+  "JSON schema: {\"action\":\"setField|addItem|none\",\"planId\":\"id of the plan to change\",\"field\":\"startDate|endDate|startTime|endTime|title|destination|transportation|startLocation|estimatedTravelTime|estimatedDistance|notes\",\"value\":\"the value to set, dates as YYYY-MM-DD, times as HH:MM\",\"summary\":\"one short sentence describing the change in plain English\",\"list\":\"packing|todo (only for addItem)\",\"item\":\"text of item to add (only for addItem)\"} " +
+  "Rules: Use the planId from the context. For dates use YYYY-MM-DD. For 'tomorrow'/'next week' figure out the actual date. Never invent a planId; if no specific plan is mentioned and the context has exactly one plan, use that one; otherwise return action none and ask which plan. Output minified JSON only, no prose.";
+
+function looksLikeEdit(text){
+  const q = text.toLowerCase();
+  return /(add|set|change|update|move|reschedule|cancel|remove|rename|schedule|put|make|give|switch|edit|fix|correct|turn|mark|book).*(date|time|start|end|title|name|destination|location|transport|reservation|reminder|note|packing|item|hotel|stop|people|traveler|status)/.test(q)
+      || /(date|time|title|name|destination|location|reminder|status).*(to|for|as|from)/.test(q)
+      || /^add |^set |^change |^update |^move |^rename |^remove |^cancel |^schedule /.test(q)
+      || /(should be|needs? to be|make it|call it|name it|title it)/.test(q);
+}
+
+async function proposeAction(text, planId){
+  let plansCtx;
+  if(planId){
+    const p = getPlan(planId);
+    if(!p) return null;
+    plansCtx = "The current plan (id: "+p.id+"):\n" + planContext(p);
+  } else {
+    plansCtx = "The user's plans (use the matching id):\n" + globalContext();
+  }
+  try{
+    const raw = await groqJSON([
+      {role:"system", content: ACTION_SYS},
+      {role:"system", content: "Today is " + toISO(new Date()) + ". " + plansCtx},
+      {role:"user", content: text},
+    ], {temperature:0.2, maxTokens:300});
+    if(!raw || raw.action === "none" || !raw.action) return null;
+    if(!getPlan(raw.planId)){
+      if(planId && getPlan(planId)){ raw.planId = planId; }
+      else if(state.plans.length === 1){ raw.planId = state.plans[0].id; }
+      else {
+        const s = (raw.summary||"").toLowerCase();
+        const match = state.plans.find(p => s.includes(p.title.toLowerCase()) || s.includes(p.destination.toLowerCase()));
+        if(match) raw.planId = match.id; else return null;
+      }
+    }
+    return raw;
+  }catch(e){ return null; }
+}
+
+function applyProposedAction(a){
+  const p = getPlan(a.planId);
+  if(!p) return false;
+  if(a.action === "setField" && a.field){
+    const synonyms = { name:"title", location:"destination", start:"startDate", end:"endDate", departTime:"startTime", returnTime:"endTime", transport:"transportation", travelers:"peopleCount", people:"peopleCount", description:"notes" };
+    const field = synonyms[a.field] || a.field;
+    const allowed = ["startDate","endDate","startTime","endTime","title","destination","transportation","startLocation","estimatedTravelTime","estimatedDistance","notes","peopleCount","priority","status"];
+    if(!allowed.includes(field)) return false;
+    let val = a.value;
+    if(field === "peopleCount") val = Number(val) || undefined;
+    updatePlan(p.id, {[field]: val});
+    return true;
+  }
+  if(a.action === "addItem" && a.item){
+    if(a.list === "packing" || !a.list){
+      p.packing.push({id:uid(), text:String(a.item), done:false, aiSuggested:true});
+      updatePlan(p.id, {packing:p.packing});
+      return true;
+    }
+    const cat = a.list;
+    let cl = p.checklists.find(c=>c.category===cat);
+    if(!cl){ cl = {id:uid(), category:cat, name:(CHECKLIST_CATS.find(c=>c.id===cat)||{label:cat}).label, items:[]}; p.checklists.push(cl); }
+    cl.items.push({id:uid(), text:String(a.item), done:false, aiSuggested:true});
+    updatePlan(p.id, {checklists:p.checklists});
+    return true;
+  }
+  return false;
+}
+
+function askSearchConfirm(promptText){
+  return new Promise(resolve=>{
+    const overlay=el("div",{class:"modal-overlay",onmousedown:e=>{if(e.target===overlay){document.body.removeChild(overlay);resolve(null);}}});
+    const modal=el("div",{class:"modal modal-small"});
+    modal.appendChild(el("div",{class:"modal-head"}, el("h2",{},"Use web search?")));
+    const body=el("div",{class:"modal-body"}, el("p",{},promptText), el("p",{class:"muted small"},"Uses one free search credit so the answer can include current info."));
+    const foot=el("div",{class:"modal-foot"}, el("button",{class:"btn btn-ghost",onclick:()=>{document.body.removeChild(overlay);resolve(false);}},"Answer without searching"), el("div",{class:"spacer"}), el("button",{class:"btn btn-ghost",onclick:()=>{document.body.removeChild(overlay);resolve(null);}},"Cancel"), el("button",{class:"btn btn-primary",onclick:()=>{document.body.removeChild(overlay);resolve(true);}},"Search"));
+    modal.appendChild(body); modal.appendChild(foot); overlay.appendChild(modal); document.body.appendChild(overlay);
+  });
+}
+
+/* ---------- Chat view: sidebar of conversations + active conversation ---------- */
+function renderChatView(forcedPlanId){
+  const main=document.getElementById("main"); main.innerHTML="";
+
+  // If a plan detail asked for chat, ensure a conversation for that plan exists + active.
+  if(forcedPlanId){
+    let c = state.chats.find(ch=>ch.planId===forcedPlanId);
+    if(!c){ c = newConversation(forcedPlanId); }
+    state.activeChatId = c.id;
+  } else if(!state.activeChatId || !getConversation(state.activeChatId)){
+    // global chat view: pick the most recent general (no-plan) conversation, or make one
+    const general = state.chats.find(ch=>!ch.planId);
+    state.activeChatId = general ? general.id : newConversation(null).id;
+  }
+
+  const layout=el("div",{class:"chat-layout-hack",style:{display:"flex",gap:14,alignItems:"flex-start"}});
+  // ---- Sidebar ----
+  const sidebar=el("div",{class:"card chat-sidebar",style:{width:230,minWidth:200,maxHeight:"70vh",overflowY:"auto",padding:8}});
+  sidebar.appendChild(el("button",{class:"btn btn-primary btn-sm",style:{width:"100%",marginBottom:8},onclick:()=>{ const c=newConversation(null); state.activeChatId=c.id; render(); }},"✨ New chat"));
+  if(!state.chats.length){
+    sidebar.appendChild(el("p",{class:"muted small",style:{padding:"4px 6px"}},"No conversations yet."));
+  } else {
+    state.chats.forEach(c=>{
+      const isPlan = !!c.planId;
+      const plan = isPlan ? getPlan(c.planId) : null;
+      const item=el("div",{style:{padding:"8px 10px",borderRadius:10,cursor:"pointer",marginBottom:4,background: c.id===state.activeChatId?"var(--primary-soft)":"transparent",border:"1px solid "+(c.id===state.activeChatId?"var(--primary)":"transparent")}},
+        el("div",{style:{fontWeight:600,fontSize:".88rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}, (isPlan?(PLAN_TYPE_META[plan?.type]||{icon:""}).icon+" ":"")+c.title),
+        el("div",{class:"muted",style:{fontSize:".72rem"}}, isPlan?("Plan chat"+(plan?"":" · deleted")):"General chat")
+      );
+      item.onclick=()=>{ state.activeChatId=c.id; render(); };
+      // delete on hover-tap: small × button
+      const del=el("button",{class:"btn btn-ghost",style:{position:"absolute",right:6,top:6,padding:"2px 6px",fontSize:".8rem",opacity:.5},onclick:(e)=>{e.stopPropagation(); if(confirm("Delete this conversation?")){ state.chats=state.chats.filter(x=>x.id!==c.id); persistChats(); if(state.activeChatId===c.id) state.activeChatId=null; render(); }}}, "✕");
+      item.style.position="relative"; item.appendChild(del);
+      sidebar.appendChild(item);
+    });
+  }
+  layout.appendChild(sidebar);
+
+  // ---- Conversation panel ----
+  const panel=el("div",{style:{flex:1,minWidth:0}});
+  const conv = getConversation(state.activeChatId);
+  const planId = conv ? conv.planId : null;
+  panel.appendChild(el("div",{class:"flex-between mb",style:{flexWrap:"wrap",gap:8}},
+    el("div",{}, el("h1",{style:{margin:0,fontSize:"1.2rem"}}, "AI Chat"), el("div",{class:"sub"}, conv ? (planId?("About: "+((getPlan(planId)||{}).title||"a plan")):"General — across all your plans") : "New chat")),
+    el("div",{class:"flex gap-sm"},
+      planId ? el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{ const p=getPlan(planId); if(p) openPlan(p.id); }},"View plan") : null,
+      el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{ if(conv && conv.messages.length && !confirm("Delete this conversation and start fresh?")) return; if(conv){ state.chats=state.chats.filter(x=>x.id!==conv.id); persistChats(); } const c=newConversation(planId); state.activeChatId=c.id; render(); }},"🗑 New")
+    )
+  ));
+
+  // Plans-the-AI-can-see strip (general chat only)
+  if(!planId && state.plans.length){
+    const plansBar=el("div",{class:"card card-pad mb",style:{padding:"8px 12px"}});
+    plansBar.appendChild(el("div",{class:"muted small",style:{marginBottom:4}}, "👁️ AI sees your "+state.plans.length+" plan"+(state.plans.length!==1?"s":"")+":"));
+    const chips=el("div",{class:"flex wrap gap-sm"});
+    state.plans.forEach(p=>{ const m=PLAN_TYPE_META[p.type]; chips.appendChild(el("button",{class:"badge badge-type-"+p.type,style:{cursor:"pointer",padding:"4px 10px"},onclick:()=>openPlan(p.id)}, m.icon+" "+(p.title||p.destination))); });
+    plansBar.appendChild(chips); panel.appendChild(plansBar);
+  }
+
+  let useWeb = true;
+  const box=el("div",{class:"section",style:{padding:12,overflowY:"auto",minHeight:280,maxHeight:"48vh"}});
+  panel.appendChild(box);
+
+  const inp=el("input",{placeholder: planId?"Ask about this plan…":"Ask about your plans…"});
+  const send=el("button",{class:"btn btn-primary"},"Send");
+
+  drawChat(box, conv, inp);
+  if(conv && !conv.messages.length){
+    const suggestions = planId
+      ? ["Is this a good plan?","What am I forgetting?","Create a packing list.","Add a date of August 25."]
+      : ["What are all my plans?","What am I doing tomorrow?","Change the library trip date to August 20.","Do any of my plans overlap?"];
+    const sWrap=el("div",{class:"flex wrap gap-sm mb"});
+    suggestions.forEach(s=>sWrap.appendChild(el("button",{class:"btn btn-subtle btn-sm",onclick:()=>{ inp.value=s; inp.focus(); }}, s)));
+    panel.appendChild(sWrap);
+  }
+  const wlbl=el("label",{class:"flex gap-sm",style:{"font-size":".85rem",cursor:"pointer",marginBottom:6}}, el("input",{type:"checkbox",checked:true,onclick:e=>{useWeb=e.target.checked;}}), document.createTextNode("Use current web information"));
+  panel.appendChild(wlbl);
+  const inputWrap=el("div",{class:"flex gap-sm"}); inputWrap.appendChild(inp); inputWrap.appendChild(send); panel.appendChild(inputWrap);
+
+  async function doSend(){ const text=inp.value.trim(); if(!text)return; inp.value=""; send.disabled=true; send.textContent="…"; await sendChatMessage(text, conv, useWeb, box, inp); send.disabled=false; send.textContent="Send"; inp.focus(); }
+  send.onclick=doSend; inp.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();doSend();}});
+
+  layout.appendChild(panel);
+  main.appendChild(layout);
+}
+
+async function sendChatMessage(text, conv, useWeb, box, inp){
+  if(!conv){ return; }
+  conv.messages.push({role:"user",content:text}); persistChats();
+  // auto-title the conversation from the first message
+  if(conv.messages.length===1 && (!conv.title || conv.title==="New chat" || conv.title==="General chat")){
+    conv.title = text.slice(0,40); persistChats();
+  }
+  drawChat(box, conv, inp, true);
+  let decision;
+  while(true){
+    let result;
+    try{ result=await runChat(text, conv, useWeb, decision); }
+    catch(e){ const m=e.message||"AI request failed."; conv.messages.push({role:"assistant",content:m,error:true}); persistChats(); drawChat(box,conv,inp); return; }
+    if(result.needsConfirmation){
+      const ok=await askSearchConfirm(result.prompt);
+      if(ok===true){ decision=true; continue; }
+      if(ok===false){ decision=false; continue; }
+      conv.messages.pop(); persistChats(); drawChat(box,conv,inp);
+      return;
+    }
+    const msg=Object.assign({role:"assistant",content:result.text}, result.sources?{sources:result.sources,checkedOn:result.checkedOn,fromCache:result.fromCache,searched:true}:{});
+    conv.messages.push(msg); persistChats(); drawChat(box,conv,inp);
+
+    // AUTO-APPLY: if it looks like an edit, do it immediately (no confirm).
+    if(looksLikeEdit(text)){
+      const action=await proposeAction(text, conv.planId);
+      if(action && action.summary){
+        const ok=applyProposedAction(action);
+        if(ok){
+          msg.applied = action.summary; persistChats(); drawChat(box,conv,inp);
+          // refresh plan detail if open
+          if(state.detailId && state.detailId===action.planId){ /* overview will re-read on next open */ }
+        }
+      }
+    }
+    return;
+  }
+}
+
+function drawChat(box, conv, inp, pending){
+  box.innerHTML="";
+  if(!conv || !conv.messages.length){
+    box.appendChild(el("div",{class:"empty-state",style:{padding:"18px 10px"}}, el("div",{class:"big"},"💬"), el("h3",{style:{fontSize:"1rem"}}, conv&&conv.planId?"Ask about this plan":"Ask about your plans"), el("p",{class:"muted small"}, "Type a question, or tell the AI to change something.")));
+    return;
+  }
+  conv.messages.forEach(m=>{
+    const row=el("div",{class:"chat-msg "+(m.role==="user"?"user":"ai")});
+    const bubble=el("div",{class:"bubble"+(m.error?" error":"")}, m.content);
+    row.appendChild(bubble);
+    if(m.sources&&m.sources.length){
+      const st=el("button",{class:"sources-toggle",onclick:()=>{slist.classList.toggle("hidden");}}, "▾ Sources used ("+m.sources.length+")");
+      const slist=el("ul",{class:"sources-list"});
+      m.sources.forEach(s=>{ const li=el("li",{}, el("a",{href:s.url,target:"_blank",rel:"noopener"}, s.title||s.siteName||s.url), s.siteName?document.createTextNode(" · "+s.siteName):null); if(s.snippet)li.appendChild(el("div",{class:"muted"},s.snippet.slice(0,140)+(s.snippet.length>140?"…":""))); slist.appendChild(li); });
+      const meta=el("div",{class:"sources-meta"}, m.fromCache?"📦 from cache · checked "+new Date(m.checkedOn).toLocaleString():"Checked on "+new Date(m.checkedOn).toLocaleString());
+      bubble.appendChild(st); bubble.appendChild(slist); bubble.appendChild(meta);
+    }
+    if(m.applied){
+      bubble.appendChild(el("div",{style:{marginTop:8,padding:"6px 10px",borderRadius:10,background:"rgba(16,185,129,.12)",color:"#059669",fontSize:".85rem",fontWeight:600}}, "✅ Done: "+m.applied));
+    }
+    box.appendChild(row);
+  });
+  if(pending){ const r=el("div",{class:"chat-msg ai"}, el("div",{class:"bubble"}, el("span",{class:"spinner"}))); box.appendChild(r); }
+  box.scrollTop=box.scrollHeight;
+}
+
+/* ---------- Settings ---------- */
+function renderSettings_real(){
+  const main=document.getElementById("main"); main.innerHTML="";
+  main.appendChild(el("div",{class:"page-title"}, el("div",{}, el("h1",{},"Settings"), el("div",{class:"sub"},"Search, privacy, and data"))));
+  const s=state.settings;
+  // free-only + search mode
+  const sec=el("div",{class:"section"});
+  sec.appendChild(el("h3",{},"🔋 AI & Search"));
+  const fo=el("label",{class:"flex gap-sm",style:{cursor:"pointer",marginBottom:10}}, el("input",{type:"checkbox",checked:s.freeOnlyMode,onclick:e=>{s.freeOnlyMode=e.target.checked;persistSettings();}}), el("span",{}, el("strong",{},"Free-Only Mode"), el("div",{class:"muted small"},"Stops (instead of retrying) when a free limit is hit. Your plans are always safe.")));
+  sec.appendChild(fo);
+  sec.appendChild(el("div",{class:"field"}, el("span",{class:"label"},"Web search mode"), (()=>{const sel=el("select",{}); [["askFirst","Ask first (recommended)"],["automatic","Automatic"],["never","Never search"]].forEach(([v,l])=>{const o=el("option",{value:v},l); if(s.searchMode===v)o.selected=true; sel.appendChild(o);}); sel.onchange=()=>{s.searchMode=sel.value;persistSettings();}; return sel;})(), el("span",{class:"muted small"},"Each search uses one free credit.")));
+  main.appendChild(sec);
+  // privacy
+  const ps=el("div",{class:"section"});
+  ps.appendChild(el("h3",{},"🔒 Privacy"));
+  ps.appendChild(el("p",{class:"muted small"},"Choose what details go to the AI when you ask a question."));
+  [["sendTravelerNames","Traveler names"],["sendAddresses","Addresses / starting location"],["sendReservationNumbers","Reservation confirmation numbers"],["sendPersonalNotes","Personal notes / freeform text"],["sendAllDetails","Send all plan details (override above)"]].forEach(([k,l])=>{
+    ps.appendChild(el("label",{class:"flex gap-sm",style:{cursor:"pointer",padding:"5px 0"}}, el("input",{type:"checkbox",checked:!!s.privacy[k],onclick:e=>{s.privacy[k]=e.target.checked;persistSettings();}}), document.createTextNode((s.privacy[k]?"✅ Allow":"🚫 Exclude")+" — "+l)));
+  });
+  main.appendChild(ps);
+  // data
+  const ds=el("div",{class:"section"});
+  ds.appendChild(el("h3",{},"💾 Data"));
+  ds.appendChild(el("p",{class:"muted small"}, "Your plans live in this browser. To move them, export a backup."));
+  ds.appendChild(el("div",{class:"flex gap-sm"}, el("button",{class:"btn btn-primary btn-sm",onclick:exportData},"💾 Export backup"), el("label",{class:"btn btn-ghost btn-sm"}, "📥 Import backup", (()=>{const ii=el("input",{type:"file",accept:"application/json",hidden:"hidden"}); ii.onchange=importData; ii.style.display="none"; const l=el("label",{class:"btn btn-ghost btn-sm",style:{cursor:"pointer"}}, "📥 Import backup", ii); return l;})())));
+  ds.appendChild(el("div",{class:"mt"}, el("button",{class:"btn btn-subtle btn-sm",onclick:()=>{ if(confirm("Add the 3 sample plans? (They're clearly marked and removable.)")){ const ex=new Set(state.plans.map(p=>p.id)); samplePlans().forEach(p=>{if(!ex.has(p.id))state.plans.unshift(p);}); persistPlans(); render(); toast("Sample plans added"); }}}, "Load sample plans"), el("button",{class:"btn btn-ghost btn-sm",style:{marginLeft:8},onclick:()=>{ const n=state.plans.filter(p=>!p.id.startsWith("demo-")).length; state.plans=state.plans.filter(p=>!p.id.startsWith("demo-")); persistPlans(); render(); toast("Removed sample plans"); }},"Remove sample plans")));
+  main.appendChild(ds);
+  // lock
+  ds.appendChild(el("div",{class:"mt"}, el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{ localStorage.removeItem(CONFIG.SESSION_KEY); sessionStorage.removeItem(CONFIG.SESSION_KEY); render(); }},"🔒 Lock app")));
+}
+function exportData(){ const blob=new Blob([JSON.stringify({plans:state.plans},null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="logistic-planner-backup-"+toISO(new Date())+".json"; a.click(); URL.revokeObjectURL(a.href); toast("Backup downloaded"); }
+function importData(e){ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{ try{ const j=JSON.parse(ev.target.result); const arr=Array.isArray(j)?j:j.plans; const ex=new Set(state.plans.map(p=>p.id)); let n=0; arr.forEach(p=>{if(p.id&&!ex.has(p.id)){state.plans.unshift(p);n++;}}); persistPlans(); render(); toast("Imported "+n+" plan"+(n!==1?"s":"")); }catch{ toast("Invalid backup file","error"); } }; r.readAsText(f); e.target.value=""; }
+
+/* ---------- New Plan modal ---------- */
+function renderNewPlan_real(){
+  const overlay=el("div",{class:"modal-overlay",onmousedown:e=>{if(e.target===overlay)closeModal();}});
+  const modal=el("div",{class:"modal modal-wide"});
+  modal.appendChild(el("div",{class:"modal-head"}, el("h2",{},"New Plan"), el("button",{class:"btn btn-ghost btn-icon",onclick:closeModal},"×")));
+  let step=0; let type="activity"; const data={destination:"",title:"",date:state.newPlanDate||"",freeform:""};
+  const body=el("div",{class:"modal-body"});
+  function draw(){
+    body.innerHTML="";
+    if(step===0){
+      body.appendChild(field("What are you planning?","e.g. Go to the library tomorrow",v=>data.destination=v, data.destination, undefined, true));
+      const grid=el("div",{class:"grid grid-3",style:{marginTop:6}});
+      Object.keys(PLAN_TYPE_META).forEach(t=>{const m=PLAN_TYPE_META[t]; const b=el("button",{class:"card card-pad",style:{textAlign:"center",cursor:"pointer",padding:14,outline:type===t?"2px solid "+m.color:"1px solid var(--border)",background:type===t?"var(--primary-soft)":undefined},onclick:()=>{type=t;draw();}}, el("div",{style:{"font-size":"1.7rem"}},m.icon), el("div",{style:{fontWeight:700,marginTop:4}},m.label)); grid.appendChild(b); });
+      body.appendChild(grid);
+    } else {
+      // type chips
+      const chips=el("div",{class:"flex wrap gap-sm mb"});
+      Object.keys(PLAN_TYPE_META).forEach(t=>{chips.appendChild(el("button",{class:"badge"+(type===t?" badge-type-"+t:""),style:{cursor:"pointer",padding:"6px 12px"},onclick:()=>{type=t;draw();}}, PLAN_TYPE_META[t].icon+" "+PLAN_TYPE_META[t].label));});
+      body.appendChild(chips);
+      body.appendChild(field("Where are you going?","e.g. Denver, CO",v=>data.destination=v,data.destination,undefined,true));
+      body.appendChild(el("div",{class:"row"}, field("Plan title","Defaults to destination",v=>data.title=v,data.title), field("Date","",v=>data.date=v,data.date,"date")));
+      body.appendChild(el("div",{class:"field"}, el("span",{class:"label"},"What do you want to do?"), el("textarea",{rows:3,placeholder:"Unstructured ideas…",oninput:e=>data.freeform=e.target.value}, data.freeform)));
+      body.appendChild(el("p",{class:"muted small"},"That's all you need! Add dates, packing, itineraries later."));
+    }
+    // redraw footer
+    const oldFoot=modal.querySelector(".modal-foot"); if(oldFoot)oldFoot.remove();
+    const foot=el("div",{class:"modal-foot"});
+    if(step===0){ foot.appendChild(el("div",{class:"spacer"})); foot.appendChild(el("button",{class:"btn btn-ghost",onclick:closeModal},"Cancel")); foot.appendChild(el("button",{class:"btn btn-primary",onclick:()=>{if(!data.destination.trim())return toast("Enter a destination first.","error"); step=1; draw();}},"Continue")); }
+    else { foot.appendChild(el("button",{class:"btn btn-ghost",onclick:()=>{step=0;draw();}},"‹ Back")); foot.appendChild(el("div",{class:"spacer"})); foot.appendChild(el("button",{class:"btn btn-ghost",onclick:closeModal},"Cancel")); foot.appendChild(el("button",{class:"btn btn-primary",onclick:()=>{ if(!data.destination.trim())return toast("Enter a destination.","error"); const p=createPlan({type,destination:data.destination.trim(),title:data.destination.trim(),startDate:/^\d{4}-\d{2}-\d{2}$/.test(data.date)?data.date:undefined,endDate:/^\d{4}-\d{2}-\d{2}$/.test(data.date)?data.date:undefined,freeform:data.freeform.trim()}); closeModal(); toast("Plan saved 🎉"); openPlan(p.id); }},"Save Plan")); }
+    modal.appendChild(foot);
+  }
+  function field(label,placeholder,onInput,val,type,req){ const f=el("label",{class:"field"}); f.appendChild(el("span",{class:"label"},label+(req?" *":""))); const i=type==="date"?el("input",{type:"date"}):el("input",{placeholder}); i.value=val||""; i.oninput=e=>onInput(e.target.value); f.appendChild(i); return f; }
+  modal.appendChild(body);
+  draw();
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+/* ---------- Plan Detail ---------- */
+let detailTab="overview";
+function renderDetail_real(id){
+  const plan=getPlan(id); if(!plan){ state.detailId=null; render(); return; }
+  const main=document.getElementById("main"); main.innerHTML="";
+  const meta=PLAN_TYPE_META[plan.type], st=STATUS_META[plan.status], dur=tripDays(plan.startDate,plan.endDate);
+  main.appendChild(el("div",{class:"page-title"},
+    el("div",{class:"flex gap-sm",style:{alignItems:"center"}},
+      el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{state.detailId=null;render();}},"‹ Back"),
+      el("div",{},
+        el("div",{class:"flex gap-sm wrap",style:{alignItems:"center"}}, el("span",{class:"badge badge-type-"+plan.type},meta.icon+" "+meta.label), el("span",{class:"badge"},el("span",{class:"dot",style:{background:st.color}})," "+st.label)),
+        el("h1",{style:{marginTop:6}}, plan.title||plan.destination),
+        el("div",{class:"muted small"}, "📍 "+plan.destination+" · 🗓️ "+fmtRange(plan.startDate,plan.endDate)+(dur>1?" · "+dur+" days":"")))),
+    el("div",{class:"flex gap-sm wrap"},
+      el("button",{class:"btn btn-ghost btn-sm",onclick:()=>deleteThisPlan(plan)},"Delete"))
+  ));
+  // tabs
+  const tabs=[["overview","Overview"],["lists","Lists ("+(plan.packing.length+plan.checklists.reduce((s,c)=>s+c.items.length,0))+")"],["notes","Notes"],["chat","AI Chat"]];
+  const tw=el("div",{class:"flex wrap gap-sm mb",style:{borderBottom:"1px solid var(--border)",paddingBottom:8}});
+  tabs.forEach(([id,label])=>tw.appendChild(el("button",{class:"btn btn-sm "+(detailTab===id?"btn-primary":"btn-subtle"),onclick:()=>{detailTab=id;render();}},label)));
+  main.appendChild(tw);
+  if(detailTab==="overview") renderDetailOverview(main,plan);
+  else if(detailTab==="lists") renderDetailLists(main,plan);
+  else if(detailTab==="notes") renderDetailNotes(main,plan);
+  else if(detailTab==="chat"){
+    // jump to the Chat view with this plan's conversation active
+    let c = state.chats.find(ch=>ch.planId===plan.id);
+    if(!c) c = newConversation(plan.id);
+    state.activeChatId = c.id;
+    state.detailId = null; state.view = "chat"; render();
+  }
+}
+function deleteThisPlan(plan){ if(!confirm("Delete \u201C"+plan.title+"\u201D? This can't be undone."))return; deletePlan(plan.id); state.detailId=null; toast("Plan deleted"); render(); }
+function renderDetailOverview(main,plan){
+  const sec=el("div",{class:"grid grid-2"});
+  // details
+  const d=el("div",{class:"section"}); d.appendChild(el("h3",{},"📋 Details"));
+  d.appendChild(inputRow(plan,"Title","title","text")); d.appendChild(inputRow(plan,"Destination","destination","text",true));
+  d.appendChild(el("div",{class:"row"}, inputRow(plan,"Start date","startDate","date"), inputRow(plan,"End date","endDate","date")));
+  d.appendChild(el("div",{class:"row"}, inputRow(plan,"Start time","startTime","time"), inputRow(plan,"End time","endTime","time")));
+  d.appendChild(selectRow(plan,"Status","status",Object.entries(STATUS_META).map(([k,v])=>[k,v.icon+" "+v.label])));
+  sec.appendChild(d);
+  // logistics
+  const l=el("div",{class:"section"}); l.appendChild(el("h3",{},"🧭 Logistics"));
+  l.appendChild(inputRow(plan,"Starting location","startLocation","text"));
+  l.appendChild(el("div",{class:"row"}, selectRow(plan,"Transportation","transportation",Object.entries(TRANSPORT_META).map(([k,v])=>[k,v.icon+" "+v.label])), inputRow(plan,"People","peopleCount","number")));
+  l.appendChild(el("div",{class:"row"}, inputRow(plan,"Est. distance","estimatedDistance","text"), inputRow(plan,"Est. travel time","estimatedTravelTime","text")));
+  l.appendChild(inputRow(plan,"Travelers (comma-separated)","travelersText","text"));
+  sec.appendChild(l);
+  main.appendChild(sec);
+  // destinations
+  const ds=el("div",{class:"section"}); ds.appendChild(el("h3",{},"🛣️ Destinations / Stops"));
+  if(plan.destinations.length){ const ul=el("ul",{style:{listStyle:"none",padding:0,margin:"0 0 8px"}}); plan.destinations.forEach((dd,i)=>{ ul.appendChild(el("li",{class:"flex-between",style:{padding:"5px 0",borderBottom:"1px solid var(--border)"}}, el("span",{}, (i+1)+". "+dd.name), el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{plan.destinations=plan.destinations.filter(x=>x.id!==dd.id);updatePlan(plan.id,{destinations:plan.destinations});renderDetail_real(plan.id);}},"✕"))); }); ds.appendChild(ul); }
+  ds.appendChild(el("button",{class:"btn btn-subtle btn-sm",onclick:()=>{const n=prompt("Stop name (e.g. Kansas City)"); if(n){plan.destinations.push({id:uid(),name:n});updatePlan(plan.id,{destinations:plan.destinations});renderDetail_real(plan.id);}}},"＋ Add stop"));
+  main.appendChild(ds);
+}
+function inputRow(plan,label,fieldId,type,req){
+  const f=el("label",{class:"field"}); f.appendChild(el("span",{class:"label"},label+(req?" *":"")));
+  let val = fieldId==="travelersText" ? (plan.travelers||[]).join(", ") : plan[fieldId];
+  const i=el("input",{type:type||"text"}); i.value=val||""; i.onblur=()=>{ let v=i.value.trim(); if(fieldId==="travelersText"){ updatePlan(plan.id,{travelers:v?v.split(",").map(s=>s.trim()).filter(Boolean):[]}); } else if(type==="number"){ updatePlan(plan.id,{[fieldId]:v?Number(v):undefined}); } else { updatePlan(plan.id,{[fieldId]:v||undefined}); } }; f.appendChild(i); return f;
+}
+function selectRow(plan,label,fieldId,options){
+  const f=el("label",{class:"field"}); f.appendChild(el("span",{class:"label"},label));
+  const s=el("select",{}); options.forEach(([v,l])=>{const o=el("option",{value:v},l); if((plan[fieldId]||"")===v)o.selected=true; s.appendChild(o);}); s.onchange=()=>updatePlan(plan.id,{[fieldId]:s.value||undefined}); f.appendChild(s); return f;
+}
+function renderDetailLists(main,plan){
+  const grid=el("div",{class:"grid grid-2"});
+  // packing
+  const pk=el("div",{class:"section"}); pk.appendChild(el("h3",{},"🎒 Packing")); pk.appendChild(listEditor(plan,plan.packing,"packing")); grid.appendChild(pk);
+  // checklists (categories) — NOTE: do NOT mutate plan.checklists during render.
+  // We create the list lazily only when the user adds an item to it.
+  const cl=el("div",{class:"section"}); cl.appendChild(el("h3",{},"📝 Checklists"));
+  const cats=[...CHECKLIST_CATS];
+  const stateRef = { activeCat: (plan._lastListCat || (plan.checklists.find(c=>c.items.length)?.category) || "todo") };
+  const tabs=el("div",{class:"flex wrap gap-sm mb"});
+  function drawTabs(){
+    tabs.innerHTML="";
+    cats.forEach(c=>{
+      const list=plan.checklists.find(x=>x.category===c.id);
+      const total=list?list.items.length:0;
+      tabs.appendChild(el("button",{class:"badge"+(stateRef.activeCat===c.id?" badge-type-activity":""),style:{cursor:"pointer",padding:"6px 11px",opacity:stateRef.activeCat===c.id?1:.7},onclick:()=>{stateRef.activeCat=c.id; plan._lastListCat=c.id; drawTabs(); drawList();}}, c.icon+" "+c.label+(total?" ("+total+")":"")));
+    });
+  }
+  const listHost=el("div",{});
+  function drawList(){
+    listHost.innerHTML="";
+    const existing = plan.checklists.find(c=>c.category===stateRef.activeCat);
+    // pass a virtual list that creates+appends itself on first add (no mutation on render)
+    const virtualList = existing || {id:uid(),category:stateRef.activeCat,name:(CHECKLIST_CATS.find(c=>c.id===stateRef.activeCat)||{label:stateRef.activeCat}).label,items:[]};
+    const committed = !!existing;
+    listHost.appendChild(listEditor(plan, virtualList.items, null, ()=>{
+      if(!committed){ plan.checklists.push(virtualList); }
+      updatePlan(plan.id,{checklists:plan.checklists});
+    }));
+  }
+  drawTabs(); drawList();
+  cl.appendChild(tabs); cl.appendChild(listHost);
+  grid.appendChild(cl);
+  // Reservations (real reservations, not a checklist)
+  const rs=el("div",{class:"section"}); rs.appendChild(el("h3",{},"🎫 Reservations"));
+  if(plan.reservations && plan.reservations.length){
+    plan.reservations.forEach(r=>{
+      const row=el("div",{class:"card card-pad",style:{marginBottom:8}});
+      row.appendChild(el("div",{class:"flex-between"}, el("strong",{},r.title), el("div",{class:"flex gap-sm"}, el("span",{class:"badge"},r.type), el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{plan.reservations=plan.reservations.filter(x=>x.id!==r.id);updatePlan(plan.id,{reservations:plan.reservations});renderDetail_real(plan.id);}},"✕"))));
+      if(r.date) row.appendChild(el("div",{class:"muted small"},"📅 "+r.date));
+      if(r.confirmationNumber) row.appendChild(el("div",{class:"muted small"},"Confirmation: "+r.confirmationNumber));
+      if(r.notes) row.appendChild(el("div",{class:"small mt-sm"},r.notes));
+      rs.appendChild(row);
+    });
+  } else { rs.appendChild(el("p",{class:"muted small"},"No reservations yet.")); }
+  rs.appendChild(el("button",{class:"btn btn-subtle btn-sm mt-sm",onclick:()=>{const title=prompt("Reservation name (e.g. Hilton — 2 nights)");if(!title)return;const type=prompt("Type: lodging, travel, activity, restaurant, or other","lodging");plan.reservations.push({id:uid(),type:(type||"other").trim(),title});updatePlan(plan.id,{reservations:plan.reservations});renderDetail_real(plan.id);}},"＋ Add reservation"));
+  grid.appendChild(rs);
+  main.appendChild(grid);
+}
+function listEditor(plan,arr,field,onChange){
+  const wrap=el("div");
+  const ul=el("ul",{style:{listStyle:"none",padding:0,margin:"0 0 8px"}});
+  arr.forEach(it=>{ const li=el("li",{class:"flex-between",style:{padding:"6px 0",borderBottom:"1px solid var(--border)"}}, el("label",{class:"flex gap-sm",style:{cursor:"pointer"}}, (()=>{const cb=el("input",{type:"checkbox"}); cb.checked=!!it.done; cb.onchange=()=>{it.done=cb.checked; if(onChange)onChange(); else updatePlan(plan.id,{[field]:arr});}; return cb;})(), el("span",{style:{textDecoration:it.done?"line-through":"none"}}, it.text+(it.aiSuggested?" ✨":""))), el("button",{class:"btn btn-ghost btn-sm",onclick:()=>{const next=arr.filter(x=>x.id!==it.id); if(onChange){arr.length=0; next.forEach(x=>arr.push(x)); onChange();} else updatePlan(plan.id,{[field]:next}); renderDetail_real(plan.id);}},"✕")); ul.appendChild(li); });
+  wrap.appendChild(ul);
+  const row=el("div",{class:"flex gap-sm"}); const inp=el("input",{placeholder:"Add…"}); const btn=el("button",{class:"btn btn-primary btn-sm"},"Add");
+  function add(){ const t=inp.value.trim(); if(!t)return; arr.push({id:uid(),text:t,done:false}); if(onChange)onChange(); else updatePlan(plan.id,{[field]:arr}); renderDetail_real(plan.id); }
+  btn.onclick=add; inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();add();}});
+  row.appendChild(inp); row.appendChild(btn); wrap.appendChild(row); return wrap;
+}
+
+function renderDetailNotes(main,plan){
+  const grid=el("div",{class:"grid grid-2"});
+  const f1=el("div",{class:"section"}); f1.appendChild(el("h3",{},"✍️ What do you want to do?"));
+  const ta1=el("textarea",{rows:8,placeholder:"Brain-dump anything…"}); ta1.value=plan.freeform||""; ta1.onblur=()=>updatePlan(plan.id,{freeform:ta1.value}); f1.appendChild(ta1);
+  grid.appendChild(f1);
+  const f2=el("div",{class:"section"}); f2.appendChild(el("h3",{},"🗒️ Notes"));
+  const ta2=el("textarea",{rows:8,placeholder:"Any extra notes…"}); ta2.value=plan.notes||""; ta2.onblur=()=>updatePlan(plan.id,{notes:ta2.value}); f2.appendChild(ta2);
+  grid.appendChild(f2);
+  main.appendChild(grid);
+}
+
+/* ---------- Init ---------- */
+// Seed the sample plans once, on the very first run (before any plans key exists).
+// We never re-seed after that, so deleting all plans stays deleted.
+if(localStorage.getItem(S.plans)===null){ state.plans = samplePlans(); persistPlans(); }
+render();
+</script>
+
+<div id="toast" class="toast" hidden></div>
+</body>
+</html>
